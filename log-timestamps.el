@@ -66,12 +66,30 @@
   "Enable log-timestamps mode in the current buffer."
   (log-timestamps-mode 1))
 
+;;;autoload
+(defun log-timestamps-replace-in-buffer ()
+  "Replace 13-digit millisecond timestamps with human-readable dates in the current buffer."
+  (interactive)
+  (save-excursion
+    (goto-char (point-min))
+    (let ((regex "\\b1[0-9]\\{12\\}\\b"))
+      (while (re-search-forward regex nil t)
+        (let* ((raw (match-string 0))
+               (secs (/ (string-to-number raw) 1000))
+               (date (format-time-string "%Y-%m-%d %H:%M:%S" (seconds-to-time secs))))
+          (replace-match date t t))))))
+
 ;; Auto-enable in common modes
 (dolist (hook '(json-mode-hook
                 org-mode-hook
                 logview-mode-hook
                 prog-mode-hook))
   (add-hook hook #'log-timestamps-enable-in-buffer))
+
+(add-hook 'csv-mode-hook
+          (lambda ()
+            (when (y-or-n-p "Reemplazar timestamps por fechas legibles?")
+              (log-timestamps-replace-in-buffer))))
 
 ;; Doom Emacs keybindings (SPC t)
 (when (featurep 'evil) ; Only define if Doom/general.el is available
@@ -87,3 +105,19 @@
 
 (provide 'log-timestamps)
 ;;; log-timestamps.el ends here
+
+;; Activar automáticamente en ciertos modos
+(dolist (hook '(json-mode-hook
+                logview-mode-hook
+                prog-mode-hook
+                org-mode-hook))
+  (add-hook hook #'log-timestamps-mode))
+
+(add-hook 'csv-mode-hook
+          (lambda ()
+            (when (y-or-n-p "Replace timestamps with human readable dates?")
+              (log-timestamps-replace-in-buffer))))
+(map! :mode csv-mode
+      :leader
+      :desc "Replace timestamps with date"
+      "t R" #'log-timestamps-replace-in-buffer)
